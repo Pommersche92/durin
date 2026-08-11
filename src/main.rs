@@ -1,3 +1,5 @@
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 //! Application entry point and runtime bootstrap for Durin.
 //!
 //! This module is intentionally small and focused on orchestration:
