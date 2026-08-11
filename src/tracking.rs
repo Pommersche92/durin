@@ -102,7 +102,7 @@ fn target_memory_mib(target: &ProcessTarget, system: &System) -> f64 {
             .values()
             .find(|proc_info| proc_info.pid().as_u32() == target_pid)
         {
-            return kib_to_mib(process.memory());
+            return bytes_to_mib(process.memory());
         }
         return 0.0;
     }
@@ -116,11 +116,11 @@ fn target_memory_mib(target: &ProcessTarget, system: &System) -> f64 {
         .processes()
         .values()
         .filter(|process| process.name().to_string_lossy().to_lowercase() == target_name)
-        .map(|process| kib_to_mib(process.memory()))
+        .map(|process| bytes_to_mib(process.memory()))
         .sum()
 }
 
-/// Converts kibibytes to mebibytes.
-fn kib_to_mib(kib: u64) -> f64 {
-    kib as f64 / 1024.0
+/// Converts bytes to mebibytes.
+fn bytes_to_mib(bytes: u64) -> f64 {
+    bytes as f64 / (1024.0 * 1024.0)
 }
