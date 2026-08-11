@@ -203,7 +203,12 @@ Alternative controls:
 
 ## Profiles and settings.toml
 
-Durin persists profile and UI state in `settings.toml` at project runtime path.
+Durin persists profile and UI state in an operating-system specific `settings.toml` location.
+
+### Default Locations
+
+- Windows: `AppData/Roaming/durin/settings.toml`
+- Linux: `~/.config/durin/settings.toml`
 
 ### Minimal Example
 

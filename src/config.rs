@@ -11,6 +11,7 @@
 //!   per-profile sampling intervals, export controls).
 
 use std::{
+    env,
     fs,
     path::{Path, PathBuf},
 };
@@ -95,6 +96,12 @@ impl Settings {
     /// Pretty serialization is intentionally used to keep manual edits easy
     /// and diff-friendly for debugging or synchronization use cases.
     pub fn save(&self, path: &Path) -> Result<()> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).with_context(|| {
+                format!("Konnte Konfigurationsverzeichnis {} nicht anlegen", parent.display())
+            })?;
+        }
+
         let serialized = toml::to_string_pretty(self).context("Konnte Settings nicht serialisieren")?;
         fs::write(path, serialized)
             .with_context(|| format!("Konnte Datei {} nicht schreiben", path.display()))
@@ -122,6 +129,32 @@ impl Settings {
 ///
 /// Kept as a function so path policy can later evolve (e.g., XDG/AppData)
 /// without touching call-sites.
-pub fn settings_path() -> PathBuf {
-    PathBuf::from("settings.toml")
+pub fn settings_path() -> Result<PathBuf> {
+    let config_dir = platform_config_dir()?;
+    Ok(config_dir.join("durin").join("settings.toml"))
+}
+
+#[cfg(windows)]
+fn platform_config_dir() -> Result<PathBuf> {
+    env::var_os("APPDATA")
+        .map(PathBuf::from)
+        .context("APPDATA ist nicht gesetzt; Konfigurationspfad kann nicht bestimmt werden")
+}
+
+#[cfg(target_os = "linux")]
+fn platform_config_dir() -> Result<PathBuf> {
+    if let Some(xdg_config_home) = env::var_os("XDG_CONFIG_HOME") {
+        return Ok(PathBuf::from(xdg_config_home));
+    }
+
+    let home = env::var_os("HOME")
+        .map(PathBuf::from)
+        .context("HOME ist nicht gesetzt; Konfigurationspfad kann nicht bestimmt werden")?;
+
+    Ok(home.join(".config"))
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
+fn platform_config_dir() -> Result<PathBuf> {
+    std::env::current_dir().context("Aktuelles Arbeitsverzeichnis konnte nicht bestimmt werden")
 }

@@ -58,7 +58,7 @@ use crate::app::DurinApp;
 fn main() -> anyhow::Result<()> {
     init_tracing();
 
-    let settings_path = config::settings_path();
+    let settings_path = config::settings_path().context("Konnte Konfigurationspfad nicht bestimmen")?;
     let settings = config::Settings::load_or_default(&settings_path)
         .with_context(|| format!("Konnte {} nicht laden", settings_path.display()))?;
 
