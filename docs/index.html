@@ -85,13 +85,39 @@ cargo build --release</code></pre>
       </section>
 
       <section class="panel reveal screenshot-panel">
-        <h2>Screenshot Placeholders</h2>
-        <p>These slots are intentionally designed as placeholders and can be replaced directly with real captures.</p>
+        <h2>Screenshots</h2>
+        <p>Real application captures from current builds. The gallery keeps different image sizes visually balanced while preserving the full content.</p>
         <div class="shot-grid">
-          <figure class="shot">Overlay Overview</figure>
-          <figure class="shot">Profile Editor</figure>
-          <figure class="shot">Grouping UI</figure>
-          <figure class="shot">RAM Graph</figure>
+          <figure class="shot shot-featured" data-shot-index="0">
+            <div class="shot-media">
+              <img src="assets/img/screenshots/overlay-overview.png" alt="Durin overlay overview screenshot" loading="lazy" decoding="async" />
+            </div>
+            <figcaption>Overlay Overview</figcaption>
+          </figure>
+          <figure class="shot" data-shot-index="1">
+            <div class="shot-media">
+              <img src="assets/img/screenshots/profile-editor.png" alt="Durin profile editor screenshot" loading="lazy" decoding="async" />
+            </div>
+            <figcaption>Profile Editor</figcaption>
+          </figure>
+          <figure class="shot" data-shot-index="2">
+            <div class="shot-media">
+              <img src="assets/img/screenshots/grouping-page.png" alt="Durin grouping page screenshot" loading="lazy" decoding="async" />
+            </div>
+            <figcaption>Grouping UI</figcaption>
+          </figure>
+          <figure class="shot" data-shot-index="3">
+            <div class="shot-media">
+              <img src="assets/img/screenshots/ram-graph.png" alt="Durin RAM graph screenshot" loading="lazy" decoding="async" />
+            </div>
+            <figcaption>RAM Graph</figcaption>
+          </figure>
+          <figure class="shot" data-shot-index="4">
+            <div class="shot-media">
+              <img src="assets/img/screenshots/tray-menu.png" alt="Durin tray menu screenshot" loading="lazy" decoding="async" />
+            </div>
+            <figcaption>Tray Menu</figcaption>
+          </figure>
         </div>
       </section>
 
@@ -154,10 +180,6 @@ cargo build --release</code></pre>
 
       <section id="impressum" class="panel reveal legal">
         <h2>Legal Notice</h2>
-        <p>
-          Note: This section is intended as a template for a legally required site notice in
-          Germany and must be completed by the operator with correct, complete information.
-        </p>
         <div class="legal-grid">
           <div>
             <h3>Information pursuant to Section 5 TMG</h3>
@@ -197,7 +219,7 @@ cargo build --release</code></pre>
     </main>
 
     <footer class="site-footer">
-      <p>Durin website for GitHub Pages</p>
+      <p>© 2026 Raimo Geisel</p>
       <p>Self-hosted fonts: Cinzel, Crimson Pro (SIL Open Font License)</p>
     </footer>
 
@@ -212,6 +234,23 @@ cargo build --release</code></pre>
           <button id="gdpr-accept" class="btn btn-primary" type="button">Accept</button>
           <a class="btn btn-ghost" href="#datenschutz">Learn more</a>
         </div>
+      </div>
+    </div>
+
+    <div id="shot-lightbox" class="lightbox" role="dialog" aria-modal="true" aria-labelledby="lightbox-caption" hidden>
+      <div class="lightbox-backdrop" data-lightbox-close></div>
+      <div class="lightbox-stage" role="document">
+        <button class="lightbox-close" type="button" aria-label="Close screenshot viewer" data-lightbox-close>&times;</button>
+        <button class="lightbox-nav lightbox-prev" type="button" aria-label="Previous screenshot" data-lightbox-prev>
+          &#10094;
+        </button>
+        <figure class="lightbox-figure">
+          <img id="lightbox-image" src="" alt="" />
+          <figcaption id="lightbox-caption"></figcaption>
+        </figure>
+        <button class="lightbox-nav lightbox-next" type="button" aria-label="Next screenshot" data-lightbox-next>
+          &#10095;
+        </button>
       </div>
     </div>
 
