@@ -302,6 +302,21 @@ Durin is being developed in layers from broad observability to deep memory diagn
 
 ## Changelog
 
+### [Unreleased] - 2026-08-11
+
+Recent improvements since the initial baseline.
+
+Changed:
+
+- Added a proper Windows application icon for the executable and the main window.
+- Release builds on Windows now open directly into the UI without showing a console window.
+- Improved tray icon event handling for more reliable desktop controls.
+- Expanded localization support so the application can discover translations from multiple locale directories.
+- Added a multilingual user interface foundation with localized application text.
+- Updated the project documentation and website from German to English for broader accessibility.
+- Refined the website legal notice and contact details.
+- Made the README icon clickable so it links directly to the project website.
+
 ### [0.1.0] - 2026-08-11
 
 Initial public baseline.
