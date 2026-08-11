@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="icon.png" alt="Durin Icon" width="160" />
+  <a href="https://pommersche92.github.io/durin/"><img src="icon.png" alt="Durin Icon" width="160" /></a>
 </p>
 
 # Durin
