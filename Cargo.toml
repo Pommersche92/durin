@@ -1,0 +1,57 @@
+[package]
+name = "durin"
+version = "0.1.0"
+edition = "2024"
+authors = ["Raimo Geisel"]
+description = "A live process heap inspector and RAM usage overlay for Windows and Linux."
+readme = "README.md"
+license = "GPL-3.0-only"
+keywords = ["heap", "memory", "profiler", "overlay", "process"]
+categories = ["development-tools::profiling", "command-line-utilities"]
+
+[dependencies]
+# --- Core CLI & Async Runtime ---
+clap = { version = "4.5", features = ["derive", "env"] }
+tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "time", "sync"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1.0"
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.9"
+
+# --- Cross-Platform System Statistics ---
+sysinfo = "0.39.6"
+
+# --- UI / Overlay Rendering ---
+# eframe / egui work great for lightweight, transparent hardware-accelerated overlays
+egui = "0.36.1"
+eframe = { version = "0.36.1", features = ["wgpu"] }
+egui_plot = "0.37.0"
+
+# --- Overlay Controls ---
+global-hotkey = "0.7"
+tray-icon = "0.20"
+
+# --- Target Specific: Windows ---
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62.2", features = [
+    "Win32_Foundation",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_ProcessStatus",
+    "Win32_System_Threading",
+    "Win32_System_Memory",
+    "Win32_UI_WindowsAndMessaging", # Needed for always-on-top / click-through overlay window flags
+] }
+
+# --- Target Specific: Linux ---
+[target.'cfg(target_os = "linux")'.dependencies]
+procfs = "0.18.0"   # Fast /proc filesystem parsing for process maps and statm
+libc = "0.2"       # For process_vm_readv syscalls and native ptrace operations
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

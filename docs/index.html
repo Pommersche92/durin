@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Durin: Live-RAM-Overlay und der kuenftige Deep Delver fuer Heap-Layouts auf Windows und Linux." />
+    <title>Durin | Deep Delver fuer Speicherlandschaften</title>
+    <link rel="icon" href="assets/img/icon.png" type="image/png" />
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body>
+    <div class="bg-orb bg-orb-a" aria-hidden="true"></div>
+    <div class="bg-orb bg-orb-b" aria-hidden="true"></div>
+    <div class="bg-grid" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="Durin Startseite">
+        <img src="assets/img/icon.png" alt="Durin Icon" />
+        <span>Durin</span>
+      </a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#roadmap">Roadmap</a>
+        <a href="#changelog">Changelog</a>
+        <a href="#impressum">Impressum</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero reveal">
+        <p class="kicker">Khazad-dum trifft Speicheranalyse</p>
+        <h1>
+          Durin<br />
+          <span class="highlight-text">The Ultimate Deep Delver into Heap Layouts</span>
+        </h1>
+        <blockquote>
+          "Durin who was called the Deathless."
+          <cite>J.R.R. Tolkien, The Lord of the Rings (Appendix A)</cite>
+        </blockquote>
+        <p class="lead">
+          Durin beginnt dort, wo klassische Memory-Metriken aufhoeren: mit einem live toggelbaren
+          RAM-Overlay und dem klaren Weg in Richtung tiefer Heap-Inspektion.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="https://github.com/" target="_blank" rel="noreferrer">Repository ansehen</a>
+          <a class="btn btn-ghost" href="#usage">Usage ansehen</a>
+        </div>
+      </section>
+
+      <section id="features" class="panel reveal">
+        <h2>Aktueller Funktionsstand</h2>
+        <div class="card-grid">
+          <article class="card glow-card">
+            <h3>Live Overlay</h3>
+            <p>Always-on-top Overlay mit gruppierten RAM-Verlaeufen in Echtzeit.</p>
+          </article>
+          <article class="card glow-card">
+            <h3>Globale Steuerung</h3>
+            <p>Systemweiter Hotkey plus Tray-Menue zum Ein- und Ausblenden.</p>
+          </article>
+          <article class="card glow-card">
+            <h3>Profile und Gruppen</h3>
+            <p>Speicherbare Profile mit Gruppen fuer laufende und manuelle Prozessziele.</p>
+          </article>
+          <article class="card glow-card">
+            <h3>Future-Ready Heap Layer</h3>
+            <p>Abstraktes Backend-Interface fuer kommende Heap-Inspektion.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="usage" class="panel reveal">
+        <h2>Schneller Start</h2>
+        <ol class="step-list">
+          <li>Durin starten und ein Profil anlegen.</li>
+          <li>Profilname und Beschreibung setzen.</li>
+          <li>Gruppen definieren und Prozesse auswaehlen oder manuell eintragen.</li>
+          <li>Profil speichern und den RAM-Graph live beobachten.</li>
+        </ol>
+        <div class="code-shell" aria-label="Beispielbefehle">
+          <pre><code>cargo check
+cargo run
+cargo build --release</code></pre>
+        </div>
+      </section>
+
+      <section class="panel reveal screenshot-panel">
+        <h2>Screenshot Platzhalter</h2>
+        <p>Diese Felder sind bewusst als Platzhalter gestaltet und koennen direkt mit echten Aufnahmen ersetzt werden.</p>
+        <div class="shot-grid">
+          <figure class="shot">Overlay Overview</figure>
+          <figure class="shot">Profile Editor</figure>
+          <figure class="shot">Grouping UI</figure>
+          <figure class="shot">RAM Graph</figure>
+        </div>
+      </section>
+
+      <section id="roadmap" class="panel reveal">
+        <h2>Roadmap</h2>
+        <ul class="timeline">
+          <li>
+            <span class="dot"></span>
+            <div>
+              <h3>Naechste UX-Schritte</h3>
+              <p>Graph-Zoom, Filter je Gruppe, konfigurierbare Sampling-Rate und Export.</p>
+            </div>
+          </li>
+          <li>
+            <span class="dot"></span>
+            <div>
+              <h3>Heap Inspection Milestone</h3>
+              <p>
+                Reale Backend-Implementierung fuer Linux/Windows, Attach-Diagnostik,
+                Snapshot-Timeline und Korrelationsansicht zwischen RAM-Spikes und Heap-Zustaenden.
+              </p>
+            </div>
+          </li>
+          <li>
+            <span class="dot"></span>
+            <div>
+              <h3>Langfristig</h3>
+              <p>Historische Sessions, Vergleichsanalysen und erweiterbare Analyzer-Backends.</p>
+            </div>
+          </li>
+        </ul>
+      </section>
+
+      <section id="changelog" class="panel reveal">
+        <h2>Changelog</h2>
+        <article class="changelog-entry">
+          <h3>v0.1.0 - 2026-08-11</h3>
+          <ul>
+            <li>Live-RAM-Overlay mit Gruppen-Graphen</li>
+            <li>Globale Hotkey- und Tray-Steuerung</li>
+            <li>Profile-CRUD inklusive manueller Prozessziele</li>
+            <li>UI modularisiert in Pages und Controls</li>
+            <li>Heap-Inspection-Architektur vorbereitet (Stub-Backend)</li>
+          </ul>
+        </article>
+      </section>
+
+      <section id="impressum" class="panel reveal legal">
+        <h2>Impressum</h2>
+        <p>
+          Hinweis: Dieser Abschnitt ist als Vorlage fuer eine deutsche Impressumspflicht gedacht
+          und muss durch den Betreiber mit korrekten, vollstaendigen Daten befuellt werden.
+        </p>
+        <div class="legal-grid">
+          <div>
+            <h3>Angaben gemaess § 5 TMG</h3>
+            <p>
+              Max Mustermann<br />
+              Musterstrasse 1<br />
+              12345 Musterstadt<br />
+              Deutschland
+            </p>
+          </div>
+          <div>
+            <h3>Kontakt</h3>
+            <p>
+              E-Mail: kontakt@example.org<br />
+              Telefon: +49 0000 000000
+            </p>
+          </div>
+          <div>
+            <h3>Verantwortlich fuer den Inhalt (§ 18 Abs. 2 MStV)</h3>
+            <p>
+              Max Mustermann<br />
+              Musterstrasse 1<br />
+              12345 Musterstadt
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="datenschutz" class="panel reveal legal">
+        <h2>Datenschutz (Kurzfassung)</h2>
+        <p>
+          Diese statische Seite verarbeitet keine serverseitigen personenbezogenen Daten.
+          Zur Speicherung der Zustimmung zum Cookie/GDPR-Hinweis wird ausschliesslich lokaler
+          Browser-Speicher verwendet (localStorage).
+        </p>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>Durin Website fuer GitHub Pages</p>
+      <p>Selbstgehostete Schriften: Cinzel, Crimson Pro (SIL Open Font License)</p>
+    </footer>
+
+    <div id="gdpr-modal" class="gdpr-modal" role="dialog" aria-modal="true" aria-labelledby="gdpr-title" aria-describedby="gdpr-desc" hidden>
+      <div class="gdpr-card">
+        <h2 id="gdpr-title">Datenschutz-Hinweis</h2>
+        <p id="gdpr-desc">
+          Diese Website verwendet lokalen Browser-Speicher, um deine Zustimmung zu diesem Hinweis
+          fuer bis zu 12 Monate zu speichern. Es werden keine externen Tracker geladen.
+        </p>
+        <div class="gdpr-actions">
+          <button id="gdpr-accept" class="btn btn-primary" type="button">Akzeptieren</button>
+          <a class="btn btn-ghost" href="#datenschutz">Mehr erfahren</a>
+        </div>
+      </div>
+    </div>
+
+    <script src="assets/js/main.js"></script>
+  </body>
+</html>
