@@ -21,6 +21,7 @@ serde = { version = "1.0", features = ["derive"] }
 toml = "0.9"
 sys-locale = "0.3"
 image = { version = "0.25", default-features = false, features = ["png"] }
+rust-embed = "8.5"
 
 # --- Cross-Platform System Statistics ---
 sysinfo = "0.39.6"

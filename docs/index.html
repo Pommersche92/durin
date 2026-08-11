@@ -133,8 +133,8 @@ cargo build --release</code></pre>
             <li>Added a proper Windows application icon for both the executable and the main window.</li>
             <li>Release builds on Windows now launch straight into the UI without leaving a console window open.</li>
             <li>Improved tray icon event handling for more reliable desktop controls.</li>
-            <li>Expanded localization support to discover translations from multiple locale directories.</li>
-            <li>Introduced the groundwork for a multilingual user interface with localized application text.</li>
+            <li>Embedded all shipped localization TOML files directly into the executable.</li>
+            <li>Added an optional OS-config <code>locales/</code> override folder for rapid translation testing without rebuilding.</li>
             <li>Updated the documentation and website from German to English for broader accessibility.</li>
             <li>Refined the website legal notice and contact details.</li>
             <li>Made the README project icon clickable so it links directly to the website.</li>

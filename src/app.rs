@@ -11,7 +11,7 @@
 //! - Platform integration objects (hotkey manager/tray icon) are kept alive in the app state.
 //! - Private helper functions encapsulate deterministic parsing and icon generation.
 
-use std::{path::PathBuf, time::Duration};
+use std::{path::PathBuf, time::{Duration, Instant}};
 
 use eframe::{App, egui};
 use global_hotkey::{
@@ -27,7 +27,7 @@ use tray_icon::{
 use crate::{
     config::{ProcessTarget, Profile, Settings},
     heap::{HeapInspectorBackend, StubHeapInspector},
-    locale::{Localization, detect_system_locale, locales_path},
+    locale::{Localization, detect_system_locale},
     process::{RunningProcess, list_running_processes},
     tracking::RamTracker,
     ui::pages,
@@ -55,7 +55,7 @@ pub struct DurinApp {
     pub(crate) new_group_name: String,
     pub(crate) manual_process_name: String,
     pub(crate) process_search: String,
-    pub(crate) last_sample: std::time::Instant,
+    last_sample: Instant,
     pub(crate) ram_tracker: RamTracker,
     pub(crate) profile_editor: Option<ProfileEditorState>,
     _hotkey_manager: Option<GlobalHotKeyManager>,
@@ -107,7 +107,8 @@ impl DurinApp {
             .ui_language
             .clone()
             .or_else(detect_system_locale);
-        let localization = Localization::load(&locales_path(), requested_locale.as_deref())
+        let locales_override_dir = settings_path.parent().map(|dir| dir.join("locales"));
+        let localization = Localization::load(locales_override_dir.as_deref(), requested_locale.as_deref())
             .unwrap_or_else(|err| panic!("Failed to load localization files: {err}"));
 
         let mut system = System::new_all();

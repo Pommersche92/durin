@@ -1,18 +1,23 @@
 //! Runtime localization loading and locale resolution.
 //!
-//! Localization files are plain TOML key-value maps stored in `locales/`
-//! and named by language tags such as `de-DE.toml`.
+//! Localization files are embedded from `locales/` at build time and loaded
+//! directly from memory. Optional file-based overrides can be placed in a
+//! `locales/` directory next to the persisted `settings.toml`.
 
 use std::{
     collections::HashMap,
-    env,
     fs,
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 use anyhow::{Context, Result};
+use rust_embed::RustEmbed;
 
 pub const DEFAULT_LOCALE: &str = "en-GB";
+
+#[derive(RustEmbed)]
+#[folder = "locales/"]
+struct EmbeddedLocales;
 
 #[derive(Debug, Clone)]
 pub struct Localization {
@@ -22,13 +27,10 @@ pub struct Localization {
 }
 
 impl Localization {
-    pub fn load(locales_dir: &Path, requested_locale: Option<&str>) -> Result<Self> {
-        let translations = load_translation_maps(locales_dir)?;
+    pub fn load(locales_override_dir: Option<&Path>, requested_locale: Option<&str>) -> Result<Self> {
+        let translations = load_translation_maps(locales_override_dir)?;
         if !translations.contains_key(DEFAULT_LOCALE) {
-            anyhow::bail!(
-                "Missing fallback locale file: {}",
-                locales_dir.join(format!("{DEFAULT_LOCALE}.toml")).display()
-            );
+            anyhow::bail!("Missing embedded fallback locale file: {DEFAULT_LOCALE}.toml");
         }
 
         let resolved_locale = resolve_locale(requested_locale, &translations)
@@ -79,27 +81,66 @@ impl Localization {
     }
 }
 
-pub fn locales_path() -> PathBuf {
-    candidate_locales_paths()
-        .into_iter()
-        .find(|path| path.is_dir())
-        .unwrap_or_else(|| PathBuf::from("locales"))
-}
-
 pub fn detect_system_locale() -> Option<String> {
     sys_locale::get_locale()
 }
 
-fn load_translation_maps(locales_dir: &Path) -> Result<HashMap<String, HashMap<String, String>>> {
+fn load_translation_maps(
+    locales_override_dir: Option<&Path>,
+) -> Result<HashMap<String, HashMap<String, String>>> {
+    let mut translations = load_embedded_translation_maps()?;
+
+    if let Some(override_dir) = locales_override_dir.filter(|path| path.is_dir()) {
+        load_override_translation_maps(override_dir, &mut translations)?;
+    }
+
+    Ok(translations)
+}
+
+fn load_embedded_translation_maps() -> Result<HashMap<String, HashMap<String, String>>> {
     let mut translations = HashMap::new();
 
-    for entry in fs::read_dir(locales_dir)
-        .with_context(|| format!("Failed to read locales directory {}", locales_dir.display()))?
-    {
+    for embedded_path in EmbeddedLocales::iter() {
+        let embedded_path = embedded_path.as_ref();
+        let embedded_file_path = Path::new(embedded_path);
+
+        if embedded_file_path.extension().and_then(|ext| ext.to_str()) != Some("toml") {
+            continue;
+        }
+
+        let locale_code = match embedded_file_path.file_stem().and_then(|stem| stem.to_str()) {
+            Some(code) if !code.trim().is_empty() => code.to_string(),
+            _ => continue,
+        };
+
+        let content = EmbeddedLocales::get(embedded_path)
+            .with_context(|| format!("Failed to read embedded locale file {embedded_path}"))?;
+        let content = std::str::from_utf8(content.data.as_ref())
+            .with_context(|| format!("Embedded locale file {embedded_path} is not valid UTF-8"))?;
+
+        let map = toml::from_str::<HashMap<String, String>>(content)
+            .with_context(|| format!("Failed to parse embedded locale file {embedded_path}"))?;
+
+        translations.insert(locale_code, map);
+    }
+
+    Ok(translations)
+}
+
+fn load_override_translation_maps(
+    locales_override_dir: &Path,
+    translations: &mut HashMap<String, HashMap<String, String>>,
+) -> Result<()> {
+    for entry in fs::read_dir(locales_override_dir).with_context(|| {
+        format!(
+            "Failed to read override locales directory {}",
+            locales_override_dir.display()
+        )
+    })? {
         let entry = entry.with_context(|| {
             format!(
-                "Failed to inspect an entry in locales directory {}",
-                locales_dir.display()
+                "Failed to inspect an entry in override locales directory {}",
+                locales_override_dir.display()
             )
         })?;
         let path = entry.path();
@@ -114,15 +155,15 @@ fn load_translation_maps(locales_dir: &Path) -> Result<HashMap<String, HashMap<S
         };
 
         let content = fs::read_to_string(&path)
-            .with_context(|| format!("Failed to read locale file {}", path.display()))?;
+            .with_context(|| format!("Failed to read override locale file {}", path.display()))?;
 
         let map = toml::from_str::<HashMap<String, String>>(&content)
-            .with_context(|| format!("Failed to parse locale file {}", path.display()))?;
+            .with_context(|| format!("Failed to parse override locale file {}", path.display()))?;
 
         translations.insert(locale_code, map);
     }
 
-    Ok(translations)
+    Ok(())
 }
 
 fn resolve_locale(
@@ -160,41 +201,4 @@ fn resolve_locale(
                 .is_some_and(|prefix| prefix.eq_ignore_ascii_case(language))
         })
         .cloned()
-}
-
-fn candidate_locales_paths() -> Vec<PathBuf> {
-    let mut candidates = Vec::new();
-
-    if let Ok(exe_path) = env::current_exe() {
-        if let Some(exe_dir) = exe_path.parent() {
-            candidates.push(exe_dir.join("locales"));
-            if let Some(parent) = exe_dir.parent() {
-                candidates.push(parent.join("locales"));
-                if let Some(grandparent) = parent.parent() {
-                    candidates.push(grandparent.join("locales"));
-                }
-            }
-        }
-    }
-
-    if let Ok(current_dir) = env::current_dir() {
-        candidates.push(current_dir.join("locales"));
-    }
-
-    candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("locales"));
-
-    dedupe_paths(candidates)
-}
-
-fn dedupe_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
-    let mut unique = Vec::new();
-
-    for path in paths {
-        if unique.iter().any(|existing| existing == &path) {
-            continue;
-        }
-        unique.push(path);
-    }
-
-    unique
 }

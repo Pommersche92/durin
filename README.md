@@ -25,6 +25,7 @@ Today, Durin already provides live, profile-based RAM tracking with an overlay, 
 - [Getting Started](#getting-started)
 - [Usage](#usage)
 - [Profiles and settings.toml](#profiles-and-settingstoml)
+- [Localization](#localization)
 - [Screenshot Placeholders](#screenshot-placeholders)
 - [Roadmap](#roadmap)
 - [Changelog](#changelog)
@@ -250,6 +251,72 @@ manual = false
 
 ---
 
+## Localization
+
+Durin ships its bundled translations as embedded assets inside the executable.
+
+That means:
+
+- Release builds do not require loose `locales/*.toml` files next to the executable.
+- Translations are loaded directly from memory at runtime.
+- File-based locale loading is only used as an explicit override for translation work.
+
+### Built-In Translation Source
+
+- All files under `locales/` are embedded during build.
+- Each file name must be a locale tag such as `en-GB.toml`, `de-DE.toml`, or `fr-FR.toml`.
+- The file `locales/en-GB.toml` is the fallback locale and must always remain complete.
+
+### Override Directory For Translation Work
+
+To test translation changes quickly without rebuilding the executable, create a `locales/` directory next to the persisted `settings.toml` file.
+
+Default override locations:
+
+- Windows: `AppData/Roaming/durin/locales/`
+- Linux: `~/.config/durin/locales/`
+
+Example:
+
+- Put `fr-FR.toml` into the override directory.
+- Launch Durin.
+- Select `fr-FR` as the UI language.
+- Durin will prefer `AppData/Roaming/durin/locales/fr-FR.toml` or `~/.config/durin/locales/fr-FR.toml` over the embedded `fr-FR.toml`.
+
+This is the intended workflow for active translation work because you can edit the TOML file, restart the app, and verify the changes immediately without rebuilding.
+
+### Adding A New Language
+
+When adding a new locale to the repository:
+
+1. Copy `locales/en-GB.toml` to a new file such as `locales/fr-FR.toml`.
+2. Translate values only; do not rename, remove, or invent keys unless the UI code changed as part of the same PR.
+3. Keep locale file naming in BCP 47 style such as `fr-FR`, `it-IT`, or `pt-BR`.
+4. Verify the new file parses as TOML and that the application can switch to it.
+5. Check that fallback behavior still works if a key is temporarily missing.
+
+### Translation PR Requirements
+
+If you want a translation PR to be approved, it should include all of the following:
+
+1. One complete locale file in `locales/` with the correct language tag in the filename.
+2. Full key coverage matching `locales/en-GB.toml` at the time of the PR.
+3. Natural, user-facing wording rather than machine-generated literal phrasing.
+4. Confirmation that the translation was tested in the app, preferably via the override directory first and then with the embedded file in the branch.
+5. Notes about anything that was ambiguous, intentionally untranslated, or difficult to localize.
+
+### What Reviewers Will Check
+
+Reviewers should normally only approve a new language PR when:
+
+1. The locale file is complete and structurally consistent with `locales/en-GB.toml`.
+2. The app can switch to the new locale without parse errors or missing-file failures.
+3. The translation reads naturally in context for menus, buttons, status messages, and headings.
+4. Key names, punctuation-sensitive values, and technical terms stay consistent with the rest of the project.
+5. The PR description explains how the translation was validated.
+
+---
+
 ## Screenshot Placeholders
 
 Add real screenshots into `screenshots/` and keep these links unchanged.
@@ -316,15 +383,13 @@ Changed:
 - Added a proper Windows application icon for the executable and the main window.
 - Release builds on Windows now open directly into the UI without showing a console window.
 - Improved tray icon event handling for more reliable desktop controls.
-- Expanded localization support so the application can discover translations from multiple locale directories.
-- Added a multilingual user interface foundation with localized application text.
+- Embedded all shipped localization TOML files directly into the executable.
+- Added an optional OS-config `locales/` override folder for rapid translation testing without rebuilding.
 - Updated the project documentation and website from German to English for broader accessibility.
 - Refined the website legal notice and contact details.
 - Made the README icon clickable so it links directly to the project website.
 
-### [0.1.0] - 2026-08-11
-
-Initial public baseline.
+### [Unreleased] - Initial public baseline. - 2026-08-11
 
 Added:
 
@@ -363,11 +428,8 @@ cargo clippy --all-targets --all-features
 cargo test
 ```
 
-5. Submit a pull request with:
-   - motivation
-   - implementation notes
-   - validation steps
-   - screenshot updates (if UI changes)
+5. Submit a pull request with motivation, implementation notes, validation steps, and screenshot updates if the UI changed.
+6. For translation PRs, also include the locale code, key coverage confirmation, and how the translation was tested in the app.
 
 ---
 
