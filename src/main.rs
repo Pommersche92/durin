@@ -19,7 +19,7 @@ mod tracking;
 mod ui;
 
 use anyhow::Context;
-use eframe::egui;
+use eframe::{egui, egui_wgpu, wgpu};
 use tracing_subscriber::EnvFilter;
 
 use crate::app::DurinApp;
@@ -41,7 +41,7 @@ fn main() -> anyhow::Result<()> {
     let settings = config::Settings::load_or_default(&settings_path)
         .with_context(|| format!("Konnte {} nicht laden", settings_path.display()))?;
 
-    let native_options = eframe::NativeOptions {
+    let mut native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("Durin Overlay")
             .with_always_on_top()
@@ -50,6 +50,15 @@ fn main() -> anyhow::Result<()> {
             .with_inner_size([1040.0, 720.0]),
         ..Default::default()
     };
+
+    #[cfg(windows)]
+    {
+        if let egui_wgpu::WgpuSetup::CreateNew(create_new) = &mut native_options.wgpu_options.wgpu_setup
+        {
+            // Avoid fragile Vulkan startup paths on older Intel Windows drivers.
+            create_new.instance_descriptor.backends = wgpu::Backends::DX12 | wgpu::Backends::GL;
+        }
+    }
 
     eframe::run_native(
         "Durin",

@@ -284,9 +284,14 @@ impl DurinApp {
             }
 
             while let Ok(event) = TrayIconEvent::receiver().try_recv() {
-                if event.id() == &tray_icon_id {
-                    self.settings.overlay_visible = !self.settings.overlay_visible;
-                    self.save_settings();
+                match event {
+                    TrayIconEvent::Click { id, .. } | TrayIconEvent::DoubleClick { id, .. }
+                        if id == tray_icon_id =>
+                    {
+                        self.settings.overlay_visible = !self.settings.overlay_visible;
+                        self.save_settings();
+                    }
+                    _ => {}
                 }
             }
         }

@@ -5,6 +5,7 @@
 
 use std::{
     collections::HashMap,
+    env,
     fs,
     path::{Path, PathBuf},
 };
@@ -79,7 +80,10 @@ impl Localization {
 }
 
 pub fn locales_path() -> PathBuf {
-    PathBuf::from("locales")
+    candidate_locales_paths()
+        .into_iter()
+        .find(|path| path.is_dir())
+        .unwrap_or_else(|| PathBuf::from("locales"))
 }
 
 pub fn detect_system_locale() -> Option<String> {
@@ -156,4 +160,41 @@ fn resolve_locale(
                 .is_some_and(|prefix| prefix.eq_ignore_ascii_case(language))
         })
         .cloned()
+}
+
+fn candidate_locales_paths() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+
+    if let Ok(exe_path) = env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            candidates.push(exe_dir.join("locales"));
+            if let Some(parent) = exe_dir.parent() {
+                candidates.push(parent.join("locales"));
+                if let Some(grandparent) = parent.parent() {
+                    candidates.push(grandparent.join("locales"));
+                }
+            }
+        }
+    }
+
+    if let Ok(current_dir) = env::current_dir() {
+        candidates.push(current_dir.join("locales"));
+    }
+
+    candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("locales"));
+
+    dedupe_paths(candidates)
+}
+
+fn dedupe_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
+    let mut unique = Vec::new();
+
+    for path in paths {
+        if unique.iter().any(|existing| existing == &path) {
+            continue;
+        }
+        unique.push(path);
+    }
+
+    unique
 }
