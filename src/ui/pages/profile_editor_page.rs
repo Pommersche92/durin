@@ -26,25 +26,47 @@ use crate::{
 pub fn render(app: &mut DurinApp, ctx: &egui::Context) {
     let mut close_editor = false;
     let mut save_profile = false;
+    let profile_name_label = app.t("editor.profile_name").to_string();
+    let description_label = app.t("editor.description").to_string();
+    let groups_heading = app.t("editor.groups").to_string();
+    let remove_label = app.t("common.remove").to_string();
+    let add_empty_group_label = app.t("editor.add_empty_group").to_string();
+    let new_group_name = app.t("editor.new_group_name").to_string();
+    let processes_in_group_heading = app.t("editor.processes_in_selected_group").to_string();
+    let select_running_processes_label = app.t("editor.select_running_processes").to_string();
+    let add_running_process_label = app.t("editor.add_running_process").to_string();
+    let manual_process_name_label = app.t("editor.manual_process_name").to_string();
+    let add_manual_process_label = app.t("editor.add_manual_process").to_string();
+    let create_and_select_group_label = app.t("editor.create_and_select_group").to_string();
+    let save_label = app.t("common.save").to_string();
+    let cancel_label = app.t("common.cancel").to_string();
+    let name_match_label = app.t("process.name_match").to_string();
+    let is_edit = app
+        .profile_editor
+        .as_ref()
+        .and_then(|editor| editor.edit_index)
+        .is_some();
+    let window_title = if is_edit {
+        app.t("editor.edit_title")
+    } else {
+        app.t("editor.create_title")
+    }
+    .to_string();
 
     if let Some(editor) = &mut app.profile_editor {
-        egui::Window::new(if editor.edit_index.is_some() {
-            "Profil bearbeiten"
-        } else {
-            "Profil erstellen"
-        })
+        egui::Window::new(window_title)
         .collapsible(false)
         .resizable(true)
         .default_width(540.0)
         .show(ctx, |ui| {
-            ui.label("Profilname");
+            ui.label(&profile_name_label);
             ui.text_edit_singleline(&mut editor.draft.name);
 
-            ui.label("Beschreibung");
+            ui.label(&description_label);
             ui.text_edit_multiline(&mut editor.draft.description);
 
             ui.separator();
-            ui.heading("Gruppen");
+            ui.heading(&groups_heading);
             let mut remove_group = None;
 
             for idx in 0..editor.draft.groups.len() {
@@ -56,7 +78,7 @@ pub fn render(app: &mut DurinApp, ctx: &egui::Context) {
                         editor.selected_group_idx = Some(idx);
                     }
                     ui.text_edit_singleline(&mut editor.draft.groups[idx].name);
-                    if ui.small_button("entfernen").clicked() {
+                    if ui.small_button(&remove_label).clicked() {
                         remove_group = Some(idx);
                     }
                 });
@@ -73,25 +95,32 @@ pub fn render(app: &mut DurinApp, ctx: &egui::Context) {
                 }
             }
 
-            if ui.button("Leere Gruppe hinzufuegen").clicked() {
+            if ui.button(&add_empty_group_label).clicked() {
                 editor.draft.groups.push(ProcessGroup {
-                    name: "Neue Gruppe".to_string(),
+                    name: new_group_name.clone(),
                     targets: Vec::new(),
                 });
                 editor.selected_group_idx = Some(editor.draft.groups.len().saturating_sub(1));
             }
 
             ui.separator();
-            ui.heading("Prozesse in ausgewaehlter Gruppe");
+            ui.heading(&processes_in_group_heading);
 
             if let Some(group_idx) = editor.selected_group_idx {
                 if let Some(group) = editor.draft.groups.get_mut(group_idx) {
-                    if let Some(remove_target) = process_targets_with_remove(ui, &group.targets) {
+                    if let Some(remove_target) =
+                        process_targets_with_remove(
+                            ui,
+                            &group.targets,
+                            &remove_label,
+                            &name_match_label,
+                        )
+                    {
                         group.targets.remove(remove_target);
                     }
 
                     ui.separator();
-                    ui.label("Laufende Prozesse auswaehlen");
+                    ui.label(&select_running_processes_label);
                     running_process_selector(
                         ui,
                         &app.running_processes,
@@ -103,7 +132,7 @@ pub fn render(app: &mut DurinApp, ctx: &egui::Context) {
                     if ui
                         .add_enabled(
                             editor.selected_running_process.is_some(),
-                            egui::Button::new("Laufenden Prozess hinzufuegen"),
+                            egui::Button::new(&add_running_process_label),
                         )
                         .clicked()
                     {
@@ -120,18 +149,18 @@ pub fn render(app: &mut DurinApp, ctx: &egui::Context) {
                     }
 
                     ui.separator();
-                    ui.label("Prozessname manuell eingeben");
+                    ui.label(&manual_process_name_label);
                     ui.text_edit_singleline(&mut editor.manual_process_name);
                     if ui
                         .add_enabled(
                             !editor.manual_process_name.trim().is_empty(),
-                            egui::Button::new("Manuellen Prozessnamen hinzufuegen"),
+                            egui::Button::new(&add_manual_process_label),
                         )
                         .clicked()
                     {
                         let process_name = editor.manual_process_name.trim().to_string();
                         group.targets.push(ProcessTarget {
-                            display_name: format!("{} (Name Match)", process_name),
+                            display_name: format!("{} ({})", process_name, name_match_label),
                             process_name,
                             pid: None,
                             manual: true,
@@ -140,20 +169,20 @@ pub fn render(app: &mut DurinApp, ctx: &egui::Context) {
                     }
                 }
             } else {
-                ui.label("Lege mindestens eine Gruppe an und waehle sie aus.");
+                ui.label(&create_and_select_group_label);
             }
 
             ui.separator();
             ui.horizontal(|ui| {
                 let can_save = !editor.draft.name.trim().is_empty();
                 if ui
-                    .add_enabled(can_save, egui::Button::new("Speichern"))
+                    .add_enabled(can_save, egui::Button::new(&save_label))
                     .clicked()
                 {
                     save_profile = true;
                 }
 
-                if ui.button("Abbrechen").clicked() {
+                if ui.button(&cancel_label).clicked() {
                     close_editor = true;
                 }
             });

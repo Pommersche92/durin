@@ -27,6 +27,7 @@ use tray_icon::{
 use crate::{
     config::{ProcessTarget, Profile, Settings},
     heap::{HeapInspectorBackend, StubHeapInspector},
+    locale::{Localization, detect_system_locale, locales_path},
     process::{RunningProcess, list_running_processes},
     tracking::RamTracker,
     ui::pages,
@@ -44,6 +45,7 @@ const SAMPLE_INTERVAL: Duration = Duration::from_millis(1000);
 pub struct DurinApp {
     pub(crate) settings: Settings,
     pub(crate) settings_path: PathBuf,
+    pub(crate) localization: Localization,
     pub(crate) status_message: Option<String>,
     pub(crate) system: System,
     pub(crate) running_processes: Vec<RunningProcess>,
@@ -69,6 +71,8 @@ pub struct DurinApp {
 struct TrayState {
     _icon: TrayIcon,
     _menu: Menu,
+    toggle_item: MenuItem,
+    quit_item: MenuItem,
     toggle_id: MenuId,
     quit_id: MenuId,
 }
@@ -99,6 +103,13 @@ impl DurinApp {
     /// If optional integrations fail (e.g., hotkey registration), the app
     /// remains usable and logs a warning rather than aborting startup.
     pub fn new(settings: Settings, settings_path: PathBuf) -> Self {
+        let requested_locale = settings
+            .ui_language
+            .clone()
+            .or_else(detect_system_locale);
+        let localization = Localization::load(&locales_path(), requested_locale.as_deref())
+            .unwrap_or_else(|err| panic!("Failed to load localization files: {err}"));
+
         let mut system = System::new_all();
         system.refresh_processes(ProcessesToUpdate::All, true);
 
@@ -115,11 +126,12 @@ impl DurinApp {
             }
         }
 
-        let tray = create_tray();
+        let tray = create_tray(&localization);
 
         Self {
             settings,
             settings_path,
+            localization,
             status_message: None,
             system,
             running_processes,
@@ -146,11 +158,46 @@ impl DurinApp {
     pub(crate) fn save_settings(&mut self) {
         match self.settings.save(&self.settings_path) {
             Ok(()) => {
-                self.status_message = Some("settings.toml gespeichert".to_string());
+                self.status_message = Some(self.t("status.settings_saved").to_string());
             }
             Err(err) => {
-                self.status_message = Some(format!("Fehler beim Speichern: {err}"));
+                self.status_message = Some(format!("{}: {err}", self.t("status.settings_save_failed")));
             }
+        }
+    }
+
+    pub(crate) fn t<'a>(&'a self, key: &'a str) -> &'a str {
+        self.localization.text(key)
+    }
+
+    pub(crate) fn current_ui_language(&self) -> &str {
+        self.localization.current_locale()
+    }
+
+    pub(crate) fn available_ui_languages(&self) -> Vec<&str> {
+        self.localization.available_locales()
+    }
+
+    pub(crate) fn set_ui_language(&mut self, language: Option<String>) {
+        let requested = language.as_deref().filter(|value| !value.trim().is_empty());
+        let runtime_locale = match requested {
+            Some(locale) => self.localization.resolve_supported_locale(Some(locale)),
+            None => self
+                .localization
+                .resolve_supported_locale(detect_system_locale().as_deref()),
+        };
+
+        self.settings.ui_language = language;
+        self.localization.set_locale(&runtime_locale);
+        self.refresh_tray_labels();
+        self.save_settings();
+    }
+
+    fn refresh_tray_labels(&self) {
+        if let Some(tray) = &self.tray {
+            tray.toggle_item.set_text(self.t("tray.toggle_overlay"));
+            tray.quit_item.set_text(self.t("tray.quit"));
+            let _ = tray._icon.set_tooltip(Some(self.t("tray.tooltip")));
         }
     }
 
@@ -286,6 +333,7 @@ impl DurinApp {
         };
 
         let process_name = self.manual_process_name.trim().to_string();
+        let name_match_label = self.t("process.name_match").to_string();
         if process_name.is_empty() {
             return;
         }
@@ -293,7 +341,7 @@ impl DurinApp {
         if let Some(profile) = self.active_profile_mut() {
             if let Some(group) = profile.groups.get_mut(group_idx) {
                 group.targets.push(ProcessTarget {
-                    display_name: format!("{} (Name Match)", process_name),
+                    display_name: format!("{} ({})", process_name, name_match_label),
                     process_name,
                     pid: None,
                     manual: true,
@@ -319,6 +367,7 @@ impl App for DurinApp {
         self.tick();
 
         ctx.send_viewport_cmd(egui::ViewportCommand::Visible(self.settings.overlay_visible));
+        ctx.send_viewport_cmd(egui::ViewportCommand::Title(self.t("app.window_title").to_string()));
 
         ui.columns(3, |columns| {
             pages::profiles_page::render(self, &mut columns[0]);
@@ -335,10 +384,12 @@ impl App for DurinApp {
 ///
 /// Returns `None` when tray setup is not available on the current platform
 /// or when any intermediate build step fails.
-fn create_tray() -> Option<TrayState> {
+fn create_tray(localization: &Localization) -> Option<TrayState> {
     let menu = Menu::new();
-    let toggle_item = MenuItem::new("Overlay umschalten", true, None);
-    let quit_item = MenuItem::new("Beenden", true, None);
+    let toggle_item = MenuItem::new(localization.text("tray.toggle_overlay"), true, None);
+    let quit_item = MenuItem::new(localization.text("tray.quit"), true, None);
+    let toggle_id = toggle_item.id().clone();
+    let quit_id = quit_item.id().clone();
 
     if menu.append(&toggle_item).is_err() || menu.append(&quit_item).is_err() {
         return None;
@@ -347,7 +398,7 @@ fn create_tray() -> Option<TrayState> {
     let icon = create_overlay_icon().ok()?;
 
     let icon = TrayIconBuilder::new()
-        .with_tooltip("Durin RAM Overlay")
+        .with_tooltip(localization.text("tray.tooltip"))
         .with_menu(Box::new(menu.clone()))
         .with_icon(icon)
         .build()
@@ -356,8 +407,10 @@ fn create_tray() -> Option<TrayState> {
     Some(TrayState {
         _icon: icon,
         _menu: menu,
-        toggle_id: toggle_item.id().clone(),
-        quit_id: quit_item.id().clone(),
+        toggle_item,
+        quit_item,
+        toggle_id,
+        quit_id,
     })
 }
 

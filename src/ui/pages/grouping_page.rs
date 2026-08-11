@@ -21,18 +21,18 @@ use crate::{
 /// The function enforces that a profile must be selected before any group
 /// mutation can occur.
 pub fn render(app: &mut DurinApp, ui: &mut egui::Ui) {
-    ui.heading("Gruppen & Prozesse");
+    ui.heading(app.t("groups.heading"));
     ui.separator();
 
     if app.selected_profile_idx.is_none() {
-        ui.label("Waehle zuerst ein Profil aus.");
+        ui.label(app.t("groups.select_profile_first"));
         return;
     }
 
     render_groups_editor(app, ui);
 
     ui.separator();
-    ui.label("Laufende Prozesse");
+    ui.label(app.t("groups.running_processes"));
     running_process_selector(
         ui,
         &app.running_processes,
@@ -44,7 +44,7 @@ pub fn render(app: &mut DurinApp, ui: &mut egui::Ui) {
     if ui
         .add_enabled(
             app.selected_running_process.is_some() && app.selected_group_idx.is_some(),
-            egui::Button::new("Laufenden Prozess zur Gruppe hinzufuegen"),
+            egui::Button::new(app.t("groups.add_running_process")),
         )
         .clicked()
     {
@@ -52,13 +52,13 @@ pub fn render(app: &mut DurinApp, ui: &mut egui::Ui) {
     }
 
     ui.separator();
-    ui.label("Prozessname manuell hinzufuegen (auch wenn nicht laufend)");
+    ui.label(app.t("groups.add_manual_process"));
     ui.text_edit_singleline(&mut app.manual_process_name);
 
     if ui
         .add_enabled(
             !app.manual_process_name.trim().is_empty() && app.selected_group_idx.is_some(),
-            egui::Button::new("Manuellen Prozessnamen hinzufuegen"),
+            egui::Button::new(app.t("groups.add_manual_process_button")),
         )
         .clicked()
     {
@@ -80,6 +80,9 @@ fn render_groups_editor(app: &mut DurinApp, ui: &mut egui::Ui) {
     let mut remove_group_idx = None;
     let mut add_group = false;
     let mut changed = false;
+    let remove_label = app.t("common.remove").to_string();
+    let name_match_label = app.t("process.name_match").to_string();
+    let add_group_label = app.t("groups.add_group").to_string();
 
     if let Some(profile_idx) = app.selected_profile_idx {
         let profile = &mut app.settings.profiles[profile_idx];
@@ -99,7 +102,14 @@ fn render_groups_editor(app: &mut DurinApp, ui: &mut egui::Ui) {
                 }
             });
 
-            if let Some(remove_target_idx) = process_targets_with_remove(ui, &profile.groups[g_idx].targets) {
+            if let Some(remove_target_idx) =
+                process_targets_with_remove(
+                    ui,
+                    &profile.groups[g_idx].targets,
+                    &remove_label,
+                    &name_match_label,
+                )
+            {
                 profile.groups[g_idx].targets.remove(remove_target_idx);
                 changed = true;
             }
@@ -110,7 +120,7 @@ fn render_groups_editor(app: &mut DurinApp, ui: &mut egui::Ui) {
             if ui
                 .add_enabled(
                     !app.new_group_name.trim().is_empty(),
-                    egui::Button::new("Gruppe hinzufuegen"),
+                    egui::Button::new(&add_group_label),
                 )
                 .clicked()
             {

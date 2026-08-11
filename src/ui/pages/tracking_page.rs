@@ -16,14 +16,14 @@ use crate::app::DurinApp;
 /// Chart lines are derived from the tracker iterator and rendered with
 /// deterministic labels equal to configured group names.
 pub fn render(app: &mut DurinApp, ui: &mut egui::Ui) {
-    ui.heading("Live RAM Tracking");
+    ui.heading(app.t("tracking.heading"));
     ui.separator();
 
     if let Some(profile) = app.active_profile() {
-        ui.label(format!("Aktives Profil: {}", profile.name));
+        ui.label(format!("{}: {}", app.t("tracking.active_profile"), profile.name));
         ui.label(profile.description.clone());
     } else {
-        ui.label("Kein Profil aktiv");
+        ui.label(app.t("tracking.no_profile"));
     }
 
     ui.separator();
@@ -39,11 +39,11 @@ pub fn render(app: &mut DurinApp, ui: &mut egui::Ui) {
         });
 
     ui.separator();
-    ui.heading("Heap Inspection (Vorbereitung)");
+    ui.heading(app.t("tracking.heap_heading"));
     if app.heap_backend.is_supported() {
-        ui.label("Heap-Backend erkannt.");
+        ui.label(app.t("tracking.heap_backend_ready"));
     } else {
-        ui.label("Live Heap Inspection ist vorbereitet, aber noch nicht implementiert.");
+        ui.label(app.t("tracking.heap_not_implemented"));
     }
 
     if let Some(message) = &app.status_message {

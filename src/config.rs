@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 pub struct Settings {
     pub overlay_visible: bool,
     pub hotkey: String,
+    pub ui_language: Option<String>,
     pub active_profile: Option<String>,
     pub profiles: Vec<Profile>,
 }
@@ -60,6 +61,7 @@ impl Default for Settings {
         Self {
             overlay_visible: true,
             hotkey: "Ctrl+Shift+R".to_string(),
+            ui_language: None,
             active_profile: None,
             profiles: Vec::new(),
         }

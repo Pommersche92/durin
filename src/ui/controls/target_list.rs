@@ -11,13 +11,26 @@ use crate::config::ProcessTarget;
 ///
 /// The control itself does not mutate the input slice; callers decide when
 /// and how to apply removal in their own state management flow.
-pub fn process_targets_with_remove(ui: &mut egui::Ui, targets: &[ProcessTarget]) -> Option<usize> {
+pub fn process_targets_with_remove(
+    ui: &mut egui::Ui,
+    targets: &[ProcessTarget],
+    remove_label: &str,
+    name_match_label: &str,
+) -> Option<usize> {
     let mut remove_idx = None;
 
     for (idx, target) in targets.iter().enumerate() {
+        let display_name = if let Some(pid) = target.pid {
+            format!("{} (PID {})", target.process_name, pid)
+        } else if target.manual {
+            format!("{} ({})", target.process_name, name_match_label)
+        } else {
+            target.display_name.clone()
+        };
+
         ui.horizontal(|ui| {
-            ui.label(format!("- {}", target.display_name));
-            if ui.small_button("entfernen").clicked() {
+            ui.label(format!("- {}", display_name));
+            if ui.small_button(remove_label).clicked() {
                 remove_idx = Some(idx);
             }
         });

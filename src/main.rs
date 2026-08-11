@@ -13,6 +13,7 @@
 mod app;
 mod config;
 mod heap;
+mod locale;
 mod process;
 mod tracking;
 mod ui;

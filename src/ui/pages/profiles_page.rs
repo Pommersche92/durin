@@ -22,7 +22,7 @@ use crate::{
 /// - initializes profile editor draft state,
 /// - persists settings when profile operations change durable state.
 pub fn render(app: &mut DurinApp, ui: &mut egui::Ui) {
-    ui.heading("Profile");
+    ui.heading(app.t("profiles.heading"));
     ui.separator();
 
     for i in 0..app.settings.profiles.len() {
@@ -39,14 +39,14 @@ pub fn render(app: &mut DurinApp, ui: &mut egui::Ui) {
 
     ui.separator();
 
-    if ui.button("Neues Profil").clicked() {
+    if ui.button(app.t("profiles.new")) .clicked() {
         app.profile_editor = Some(ProfileEditorState {
             edit_index: None,
             draft: Profile {
                 name: "".to_string(),
                 description: "".to_string(),
                 groups: vec![ProcessGroup {
-                    name: "Default".to_string(),
+                    name: app.t("profiles.default_group_name").to_string(),
                     targets: Vec::new(),
                 }],
             },
@@ -58,7 +58,7 @@ pub fn render(app: &mut DurinApp, ui: &mut egui::Ui) {
     }
 
     if ui
-        .add_enabled(app.selected_profile_idx.is_some(), egui::Button::new("Profil bearbeiten"))
+        .add_enabled(app.selected_profile_idx.is_some(), egui::Button::new(app.t("profiles.edit")))
         .clicked()
     {
         if let Some(idx) = app.selected_profile_idx {
@@ -74,7 +74,7 @@ pub fn render(app: &mut DurinApp, ui: &mut egui::Ui) {
     }
 
     if ui
-        .add_enabled(app.selected_profile_idx.is_some(), egui::Button::new("Profil loeschen"))
+        .add_enabled(app.selected_profile_idx.is_some(), egui::Button::new(app.t("profiles.delete")))
         .clicked()
     {
         if let Some(idx) = app.selected_profile_idx {
@@ -87,6 +87,44 @@ pub fn render(app: &mut DurinApp, ui: &mut egui::Ui) {
     }
 
     ui.separator();
-    ui.label(format!("Hotkey: {}", app.settings.hotkey));
-    ui.label("Tray: Klick auf Icon oder Menu");
+    ui.label(format!("{}: {}", app.t("settings.hotkey"), app.settings.hotkey));
+    ui.label(app.t("settings.tray_hint"));
+
+    ui.separator();
+    ui.label(app.t("settings.language"));
+
+    let mut selected_language = app.settings.ui_language.clone().unwrap_or_default();
+    let selected_label = if selected_language.is_empty() {
+        format!(
+            "{} ({})",
+            app.t("settings.language_system"),
+            app.current_ui_language()
+        )
+    } else {
+        selected_language.clone()
+    };
+
+    egui::ComboBox::from_id_salt("ui_language_select")
+        .selected_text(selected_label)
+        .show_ui(ui, |ui| {
+            ui.selectable_value(
+                &mut selected_language,
+                String::new(),
+                app.t("settings.language_system"),
+            );
+
+            for locale in app.available_ui_languages() {
+                ui.selectable_value(&mut selected_language, locale.to_string(), locale);
+            }
+        });
+
+    let desired_language = if selected_language.is_empty() {
+        None
+    } else {
+        Some(selected_language)
+    };
+
+    if desired_language != app.settings.ui_language {
+        app.set_ui_language(desired_language);
+    }
 }
