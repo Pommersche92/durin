@@ -63,14 +63,18 @@ fn main() -> anyhow::Result<()> {
     let settings = config::Settings::load_or_default(&settings_path)
         .with_context(|| format!("Konnte {} nicht laden", settings_path.display()))?;
 
+    let main_window_size = settings.main_window_size.unwrap_or([1040.0, 720.0]);
+    let main_window_position = settings.main_window_position.unwrap_or([100.0, 100.0]);
+
     let mut native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title("Durin Overlay")
+            .with_title("Durin")
             .with_icon(load_app_icon().context("Konnte icon.png nicht als Fenster-Icon laden")?)
             .with_always_on_top()
-            .with_transparent(true)
+            .with_transparent(false)
             .with_decorations(true)
-            .with_inner_size([1040.0, 720.0]),
+            .with_inner_size(main_window_size)
+            .with_position(main_window_position),
         ..Default::default()
     };
 
@@ -78,8 +82,10 @@ fn main() -> anyhow::Result<()> {
     {
         if let egui_wgpu::WgpuSetup::CreateNew(create_new) = &mut native_options.wgpu_options.wgpu_setup
         {
-            // Avoid fragile Vulkan startup paths on older Intel Windows drivers.
-            create_new.instance_descriptor.backends = wgpu::Backends::DX12 | wgpu::Backends::GL;
+            // Transparent overlay windows require a backend that supports alpha compositing.
+            // The DX12 path on the current Intel/Windows setup rejects `Transparent`, so we
+            // prefer OpenGL here to keep the overlay usable and stable.
+            create_new.instance_descriptor.backends = wgpu::Backends::GL;
         }
     }
 

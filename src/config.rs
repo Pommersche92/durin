@@ -26,10 +26,26 @@ pub struct Settings {
     pub hotkey: String,
     pub ui_language: Option<String>,
     pub active_profile: Option<String>,
+    #[serde(default)]
     pub chart_popout_enabled: bool,
-    pub chart_popout_opacity: f32,
+    #[serde(default = "default_chart_popout_always_on_top")]
     pub chart_popout_always_on_top: bool,
+    #[serde(default)]
+    pub chart_popout_pinned: bool,
+    #[serde(default)]
+    pub main_window_position: Option<[f32; 2]>,
+    #[serde(default)]
+    pub main_window_size: Option<[f32; 2]>,
+    #[serde(default)]
+    pub chart_popout_position: Option<[f32; 2]>,
+    #[serde(default)]
+    pub chart_popout_size: Option<[f32; 2]>,
+    #[serde(default)]
     pub profiles: Vec<Profile>,
+}
+
+fn default_chart_popout_always_on_top() -> bool {
+    true
 }
 
 /// Named profile that groups process target collections.
@@ -68,14 +84,31 @@ impl Default for Settings {
             ui_language: None,
             active_profile: None,
             chart_popout_enabled: false,
-            chart_popout_opacity: 0.8,
             chart_popout_always_on_top: true,
+            chart_popout_pinned: false,
+            main_window_position: None,
+            main_window_size: None,
+            chart_popout_position: None,
+            chart_popout_size: None,
             profiles: Vec::new(),
         }
     }
 }
 
 impl Settings {
+    /// Normalizes runtime values to keep persisted config compatible with the
+    /// feature defaults and range requirements.
+    pub fn normalize(&mut self) {
+        if let Some(size) = &mut self.main_window_size {
+            size[0] = size[0].max(200.0);
+            size[1] = size[1].max(160.0);
+        }
+        if let Some(size) = &mut self.chart_popout_size {
+            size[0] = size[0].max(300.0);
+            size[1] = size[1].max(180.0);
+        }
+    }
+
     /// Loads settings from disk or creates a new default file if absent.
     ///
     /// This function establishes the expected startup behavior:
@@ -91,9 +124,10 @@ impl Settings {
         let content = fs::read_to_string(path)
             .with_context(|| format!("Konnte Datei {} nicht lesen", path.display()))?;
 
-        let settings = toml::from_str::<Self>(&content)
+        let mut settings = toml::from_str::<Self>(&content)
             .with_context(|| format!("Konnte TOML in {} nicht parsen", path.display()))?;
 
+        settings.normalize();
         Ok(settings)
     }
 
@@ -138,6 +172,21 @@ impl Settings {
 pub fn settings_path() -> Result<PathBuf> {
     let config_dir = platform_config_dir()?;
     Ok(config_dir.join("durin").join("settings.toml"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Settings;
+
+    #[test]
+    fn window_geometry_defaults_are_sane() {
+        let settings = Settings::default();
+
+        assert!(settings.main_window_size.is_none());
+        assert!(settings.main_window_position.is_none());
+        assert!(settings.chart_popout_size.is_none());
+        assert!(settings.chart_popout_position.is_none());
+    }
 }
 
 #[cfg(windows)]

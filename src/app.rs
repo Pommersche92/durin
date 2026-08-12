@@ -11,9 +11,14 @@
 //! - Platform integration objects (hotkey manager/tray icon) are kept alive in the app state.
 //! - Private helper functions encapsulate deterministic parsing and icon generation.
 
-use std::{path::PathBuf, time::{Duration, Instant}};
+use std::{
+    path::PathBuf,
+    sync::{Arc, RwLock},
+    time::{Duration, Instant},
+};
 
 use eframe::{App, egui};
+use egui_plot::{GridMark, HoverPosition, Legend, Line, Plot};
 use global_hotkey::{
     GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
     hotkey::{Code, HotKey, Modifiers},
@@ -63,7 +68,15 @@ pub struct DurinApp {
     overlay_hotkey: HotKey,
     tray: Option<TrayState>,
     pub(crate) chart_popout: Box<dyn ChartPopoutController>,
+    chart_popout_viewport_id: Option<egui::ViewportId>,
+    chart_snapshot: Arc<RwLock<Vec<ChartSeries>>>,
     pub(crate) heap_backend: Box<dyn HeapInspectorBackend + Send + Sync>,
+}
+
+#[derive(Clone, Debug, Default)]
+struct ChartSeries {
+    name: String,
+    points: Vec<[f64; 2]>,
 }
 
 /// Runtime tray integration state.
@@ -132,7 +145,7 @@ impl DurinApp {
         let tray = create_tray(&localization);
         let mut chart_popout = create_chart_popout_controller();
         chart_popout.set_enabled(settings.chart_popout_enabled);
-        chart_popout.set_opacity(settings.chart_popout_opacity);
+        chart_popout.set_opacity(1.0);
         chart_popout.set_always_on_top(settings.chart_popout_always_on_top);
 
         Self {
@@ -155,6 +168,8 @@ impl DurinApp {
             overlay_hotkey,
             tray,
             chart_popout,
+            chart_popout_viewport_id: None,
+            chart_snapshot: Arc::new(RwLock::new(Vec::new())),
             heap_backend: Box::<StubHeapInspector>::default(),
         }
     }
@@ -189,19 +204,202 @@ impl DurinApp {
     pub(crate) fn toggle_chart_popout(&mut self) {
         self.settings.chart_popout_enabled = !self.settings.chart_popout_enabled;
         self.chart_popout.set_enabled(self.settings.chart_popout_enabled);
-        self.chart_popout.set_click_through(!self.settings.chart_popout_enabled);
+        self.chart_popout.set_click_through(false);
         self.save_settings();
     }
 
-    pub(crate) fn set_chart_popout_opacity(&mut self, opacity: f32) {
-        let opacity = opacity.clamp(0.0, 1.0);
-        self.settings.chart_popout_opacity = opacity;
-        self.chart_popout.set_opacity(opacity);
+    pub(crate) fn toggle_chart_popout_pin(&mut self) {
+        self.settings.chart_popout_pinned = !self.settings.chart_popout_pinned;
         self.save_settings();
     }
 
     pub(crate) fn sync_chart_popout_input(&mut self, ctrl_down: bool, hovered: bool) {
-        self.chart_popout.update_from_input(ctrl_down, hovered, self.settings.chart_popout_opacity);
+        self.chart_popout.update_from_input(ctrl_down, hovered, 1.0);
+    }
+
+    fn refresh_chart_snapshot(&mut self) {
+        let series = self
+            .ram_tracker
+            .group_series()
+            .map(|(name, values)| ChartSeries {
+                name: name.to_string(),
+                points: values.iter().map(|p| [p.t_sec, p.value_mib]).collect(),
+            })
+            .collect();
+
+        *self.chart_snapshot.write().expect("chart snapshot lock poisoned") = series;
+    }
+
+    fn render_chart_popout(&mut self, ctx: &egui::Context) {
+        if !self.settings.chart_popout_enabled {
+            if let Some(id) = self.chart_popout_viewport_id {
+                ctx.send_viewport_cmd_to(id, egui::ViewportCommand::Close);
+                self.chart_popout_viewport_id = None;
+            }
+            return;
+        }
+
+        let viewport_id = self
+            .chart_popout_viewport_id
+            .unwrap_or_else(|| {
+                let id = egui::ViewportId::from_hash_of("durin_chart_popout");
+                self.chart_popout_viewport_id = Some(id);
+                id
+            });
+
+        self.chart_popout.set_viewport_id(viewport_id);
+        let snapshot = self.chart_snapshot.clone();
+        let opacity = 1.0;
+        let pinned = self.settings.chart_popout_pinned;
+        let saved_position = self.settings.chart_popout_position.unwrap_or([120.0, 120.0]);
+        let saved_size = self.settings.chart_popout_size.unwrap_or([760.0, 360.0]);
+
+        self.chart_popout.apply_platform_state(ctx, viewport_id, false, false, 1.0);
+        ctx.request_repaint_of(viewport_id);
+
+        let pinned_state = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(pinned));
+        let pinned_state_for_closure = pinned_state.clone();
+        let geometry_state = std::sync::Arc::new(std::sync::Mutex::new((
+            self.settings.chart_popout_position,
+            self.settings.chart_popout_size,
+        )));
+        let geometry_state_for_closure = geometry_state.clone();
+        let settings_path_for_closure = self.settings_path.clone();
+
+        ctx.show_viewport_deferred(
+            viewport_id,
+            egui::ViewportBuilder::default()
+                .with_title("Durin RAM Chart")
+                .with_decorations(false)
+                .with_transparent(false)
+                .with_always_on_top()
+                .with_resizable(true)
+                .with_visible(true)
+                .with_position(saved_position)
+                .with_inner_size(saved_size),
+            move |ui, _class| {
+                let title_bar_height = 32.0;
+                let chart_top_margin = 6.0;
+                let effective_pinned = pinned_state_for_closure.load(std::sync::atomic::Ordering::Relaxed);
+                let max_rect = ui.max_rect();
+                let background = egui::Color32::from_rgba_unmultiplied(10, 12, 18, (opacity * 255.0) as u8);
+                ui.painter().rect_filled(max_rect, 0.0, background);
+
+                let title_rect = egui::Rect::from_min_size(
+                    max_rect.min,
+                    egui::vec2(max_rect.width(), title_bar_height),
+                );
+                ui.painter().rect_filled(title_rect, 0.0, egui::Color32::from_rgba_unmultiplied(18, 22, 32, 220));
+
+                let title_response = ui.allocate_rect(title_rect, egui::Sense::drag());
+                if title_response.drag_started() && !effective_pinned {
+                    ui.ctx().send_viewport_cmd_to(viewport_id, egui::ViewportCommand::StartDrag);
+                }
+
+                let label_rect = egui::Rect::from_min_size(
+                    title_rect.min + egui::vec2(12.0, 6.0),
+                    egui::vec2(120.0, 18.0),
+                );
+                ui.painter().text(
+                    label_rect.min,
+                    egui::Align2::LEFT_TOP,
+                    "RAM Chart",
+                    egui::FontId::proportional(16.0),
+                    egui::Color32::WHITE,
+                );
+
+                let pin_button_rect = egui::Rect::from_min_size(
+                    egui::pos2(title_rect.max.x - 72.0, title_rect.min.y + 5.0),
+                    egui::vec2(60.0, 22.0),
+                );
+                let pin_label = if effective_pinned { "Unpin" } else { "Pin" };
+                let pin_button = ui.put(pin_button_rect, egui::Button::new(pin_label));
+                if pin_button.clicked() {
+                    let next = !effective_pinned;
+                    pinned_state_for_closure.store(next, std::sync::atomic::Ordering::Relaxed);
+                }
+
+                ui.ctx().send_viewport_cmd_to(
+                    viewport_id,
+                    egui::ViewportCommand::Resizable(!effective_pinned),
+                );
+
+                let resize_rect = egui::Rect::from_min_size(
+                    egui::pos2(max_rect.max.x - 18.0, max_rect.max.y - 18.0),
+                    egui::vec2(18.0, 18.0),
+                );
+                let resize_response = ui.allocate_rect(resize_rect, egui::Sense::drag());
+                if resize_response.drag_started() && !effective_pinned {
+                    ui.ctx().send_viewport_cmd_to(
+                        viewport_id,
+                        egui::ViewportCommand::BeginResize(egui::viewport::ResizeDirection::SouthEast),
+                    );
+                }
+
+                let chart_rect = egui::Rect::from_min_max(
+                    egui::pos2(max_rect.min.x + 6.0, max_rect.min.y + title_bar_height + chart_top_margin),
+                    egui::pos2(max_rect.max.x - 6.0, max_rect.max.y - 6.0),
+                );
+                let mut chart_ui = ui.new_child(egui::UiBuilder::new().max_rect(chart_rect));
+
+                if let Some(rect) = ui.ctx().input(|i| i.viewport().outer_rect) {
+                    let next_position = [rect.min.x, rect.min.y];
+                    let next_size = [rect.width(), rect.height()];
+                    let mut geometry = geometry_state_for_closure.lock().expect("chart geometry mutex poisoned");
+                    let should_save = geometry.0 != Some(next_position) || geometry.1 != Some(next_size);
+                    if should_save {
+                        geometry.0 = Some(next_position);
+                        geometry.1 = Some(next_size);
+                        let mut settings = crate::config::Settings::load_or_default(&settings_path_for_closure)
+                            .unwrap_or_default();
+                        settings.chart_popout_position = Some(next_position);
+                        settings.chart_popout_size = Some(next_size);
+                        let _ = settings.save(&settings_path_for_closure);
+                    }
+                }
+
+                if let Ok(series) = snapshot.read() {
+                    if series.is_empty() {
+                        chart_ui.label("No data yet");
+                    } else {
+                        let plot = Plot::new("chart_popout_plot")
+                            .legend(Legend::default())
+                            .show_background(false)
+                            .x_axis_formatter(|mark: GridMark, _x_range| format_duration_compact(mark.value))
+                            .y_axis_formatter(|mark: GridMark, y_range| {
+                                let unit = choose_memory_unit_for_range(y_range);
+                                format_memory_value_from_mib(mark.value, unit)
+                            })
+                            .label_formatter(|hover_pos: &HoverPosition<'_>| {
+                                Some(match hover_pos {
+                                    HoverPosition::NearDataPoint { plot_name, position, index: _ } => format!(
+                                        "{}\nt = {}\nRAM = {}",
+                                        plot_name,
+                                        format_duration_compact(position.x),
+                                        format_memory_value_adaptive(position.y)
+                                    ),
+                                    HoverPosition::Elsewhere { position } => format!(
+                                        "t = {}\nRAM = {}",
+                                        format_duration_compact(position.x),
+                                        format_memory_value_adaptive(position.y)
+                                    ),
+                                })
+                            });
+
+                        plot.show(&mut chart_ui, |plot_ui| {
+                            for group in series.iter() {
+                                plot_ui.line(Line::new(group.name.clone(), group.points.clone()));
+                            }
+                        });
+                    }
+                }
+            },
+        );
+
+        let geometry = geometry_state.lock().expect("chart geometry mutex poisoned");
+        self.settings.chart_popout_position = geometry.0;
+        self.settings.chart_popout_size = geometry.1;
+        self.settings.chart_popout_pinned = pinned_state.load(std::sync::atomic::Ordering::Relaxed);
     }
 
     pub(crate) fn set_ui_language(&mut self, language: Option<String>) {
@@ -396,12 +594,42 @@ impl App for DurinApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         self.tick();
+        self.refresh_chart_snapshot();
 
         let ctrl_down = ui.input(|i| i.modifiers.ctrl);
-        self.sync_chart_popout_input(ctrl_down, false);
+        let hovered = ui.input(|i| i.pointer.hover_pos().is_some());
 
-        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(self.settings.overlay_visible));
-        ctx.send_viewport_cmd(egui::ViewportCommand::Title(self.t("app.window_title").to_string()));
+        if let Some(rect) = ui.ctx().input(|i| i.viewport().outer_rect) {
+            let next_position = [rect.min.x, rect.min.y];
+            let next_size = [rect.width(), rect.height()];
+            let settings_changed = self.settings.main_window_position != Some(next_position)
+                || self.settings.main_window_size != Some(next_size);
+            if settings_changed {
+                self.settings.main_window_position = Some(next_position);
+                self.settings.main_window_size = Some(next_size);
+                let _ = self.settings.save(&self.settings_path);
+            }
+        }
+
+        self.sync_chart_popout_input(ctrl_down, hovered);
+
+        ui.horizontal_wrapped(|ui| {
+            ui.heading(self.t("app.window_title"));
+            ui.separator();
+
+            let popout_label = if self.settings.chart_popout_enabled {
+                "Close pop-out"
+            } else {
+                "Open pop-out"
+            };
+
+            if ui.button(popout_label).clicked() {
+                self.toggle_chart_popout();
+            }
+
+        });
+
+        ui.add_space(4.0);
 
         ui.columns(3, |columns| {
             pages::profiles_page::render(self, &mut columns[0]);
@@ -410,6 +638,7 @@ impl App for DurinApp {
         });
 
         pages::profile_editor_page::render(self, &ctx);
+        self.render_chart_popout(&ctx);
         ctx.request_repaint_after(Duration::from_millis(120));
     }
 }
@@ -480,6 +709,75 @@ fn create_overlay_icon() -> anyhow::Result<Icon> {
 /// - `Super+1`
 ///
 /// Unknown or incomplete values return `None`, allowing caller-provided fallback.
+#[derive(Clone, Copy)]
+enum MemoryUnit {
+    B,
+    KiB,
+    MiB,
+    GiB,
+    TiB,
+}
+
+fn choose_memory_unit_for_range(y_range: &std::ops::RangeInclusive<f64>) -> MemoryUnit {
+    let max_abs_mib = y_range.start().abs().max(y_range.end().abs());
+
+    if max_abs_mib >= 1024.0 * 1024.0 {
+        MemoryUnit::TiB
+    } else if max_abs_mib >= 1024.0 {
+        MemoryUnit::GiB
+    } else if max_abs_mib >= 1.0 {
+        MemoryUnit::MiB
+    } else if max_abs_mib >= (1.0 / 1024.0) {
+        MemoryUnit::KiB
+    } else {
+        MemoryUnit::B
+    }
+}
+
+fn format_memory_value_adaptive(value_mib: f64) -> String {
+    let unit = choose_memory_unit_for_range(&(0.0..=value_mib.abs()));
+    format_memory_value_from_mib(value_mib, unit)
+}
+
+fn format_memory_value_from_mib(value_mib: f64, unit: MemoryUnit) -> String {
+    let (value, suffix) = match unit {
+        MemoryUnit::B => (value_mib * 1024.0 * 1024.0, "B"),
+        MemoryUnit::KiB => (value_mib * 1024.0, "KB"),
+        MemoryUnit::MiB => (value_mib, "MB"),
+        MemoryUnit::GiB => (value_mib / 1024.0, "GB"),
+        MemoryUnit::TiB => (value_mib / (1024.0 * 1024.0), "TB"),
+    };
+
+    let decimals = if value.abs() >= 100.0 {
+        0
+    } else if value.abs() >= 10.0 {
+        1
+    } else {
+        2
+    };
+
+    format!("{:.*} {}", decimals, value, suffix)
+}
+
+fn format_duration_compact(seconds: f64) -> String {
+    let sign = if seconds.is_sign_negative() { "-" } else { "" };
+    let total = seconds.abs();
+
+    let hours = (total / 3600.0).floor() as u64;
+    let minutes = ((total % 3600.0) / 60.0).floor() as u64;
+    let secs = (total % 60.0).round() as u64;
+
+    if hours > 0 {
+        format!("{sign}{hours}h {minutes}m")
+    } else if minutes > 0 {
+        format!("{sign}{minutes}m {secs}s")
+    } else if total >= 10.0 {
+        format!("{sign}{:.0}s", total)
+    } else {
+        format!("{sign}{:.1}s", total)
+    }
+}
+
 fn parse_hotkey(input: &str) -> Option<HotKey> {
     let parts: Vec<String> = input
         .split('+')

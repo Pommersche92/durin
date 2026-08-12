@@ -16,26 +16,12 @@ use crate::app::DurinApp;
 /// Chart lines are derived from the tracker iterator and rendered with
 /// deterministic labels equal to configured group names.
 pub fn render(app: &mut DurinApp, ui: &mut egui::Ui) {
+    let base_opacity = 1.0;
+    let bg_alpha = (base_opacity * 255.0) as u8;
+    let bg = egui::Color32::from_rgba_unmultiplied(14, 18, 28, bg_alpha);
+    ui.painter().rect_filled(ui.max_rect(), 0.0, bg);
+
     ui.heading(app.t("tracking.heading"));
-    ui.horizontal(|ui| {
-        let popout_label = if app.settings.chart_popout_enabled {
-            "Close pop-out"
-        } else {
-            "Open pop-out"
-        };
-
-        if ui.button(popout_label).clicked() {
-            app.toggle_chart_popout();
-        }
-
-        let mut opacity = app.settings.chart_popout_opacity;
-        if ui
-            .add(egui::Slider::new(&mut opacity, 0.0..=1.0).text("Pop-out opacity"))
-            .changed()
-        {
-            app.set_chart_popout_opacity(opacity);
-        }
-    });
     ui.separator();
 
     if let Some(profile) = app.active_profile() {
