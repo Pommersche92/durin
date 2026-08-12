@@ -31,6 +31,7 @@ use crate::{
     process::{RunningProcess, list_running_processes},
     tracking::RamTracker,
     ui::pages,
+    windowing::{ChartPopoutController, create_chart_popout_controller},
 };
 
 const SAMPLE_INTERVAL: Duration = Duration::from_millis(1000);
@@ -61,6 +62,7 @@ pub struct DurinApp {
     _hotkey_manager: Option<GlobalHotKeyManager>,
     overlay_hotkey: HotKey,
     tray: Option<TrayState>,
+    pub(crate) chart_popout: Box<dyn ChartPopoutController>,
     pub(crate) heap_backend: Box<dyn HeapInspectorBackend + Send + Sync>,
 }
 
@@ -128,6 +130,10 @@ impl DurinApp {
         }
 
         let tray = create_tray(&localization);
+        let mut chart_popout = create_chart_popout_controller();
+        chart_popout.set_enabled(settings.chart_popout_enabled);
+        chart_popout.set_opacity(settings.chart_popout_opacity);
+        chart_popout.set_always_on_top(settings.chart_popout_always_on_top);
 
         Self {
             settings,
@@ -148,6 +154,7 @@ impl DurinApp {
             _hotkey_manager: hotkey_manager,
             overlay_hotkey,
             tray,
+            chart_popout,
             heap_backend: Box::<StubHeapInspector>::default(),
         }
     }
@@ -177,6 +184,24 @@ impl DurinApp {
 
     pub(crate) fn available_ui_languages(&self) -> Vec<&str> {
         self.localization.available_locales()
+    }
+
+    pub(crate) fn toggle_chart_popout(&mut self) {
+        self.settings.chart_popout_enabled = !self.settings.chart_popout_enabled;
+        self.chart_popout.set_enabled(self.settings.chart_popout_enabled);
+        self.chart_popout.set_click_through(!self.settings.chart_popout_enabled);
+        self.save_settings();
+    }
+
+    pub(crate) fn set_chart_popout_opacity(&mut self, opacity: f32) {
+        let opacity = opacity.clamp(0.0, 1.0);
+        self.settings.chart_popout_opacity = opacity;
+        self.chart_popout.set_opacity(opacity);
+        self.save_settings();
+    }
+
+    pub(crate) fn sync_chart_popout_input(&mut self, ctrl_down: bool, hovered: bool) {
+        self.chart_popout.update_from_input(ctrl_down, hovered, self.settings.chart_popout_opacity);
     }
 
     pub(crate) fn set_ui_language(&mut self, language: Option<String>) {
@@ -371,6 +396,9 @@ impl App for DurinApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         self.tick();
+
+        let ctrl_down = ui.input(|i| i.modifiers.ctrl);
+        self.sync_chart_popout_input(ctrl_down, false);
 
         ctx.send_viewport_cmd(egui::ViewportCommand::Visible(self.settings.overlay_visible));
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(self.t("app.window_title").to_string()));

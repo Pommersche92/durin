@@ -19,6 +19,7 @@ mod locale;
 mod process;
 mod tracking;
 mod ui;
+mod windowing;
 
 use anyhow::Context;
 use eframe::{egui, egui_wgpu, wgpu};

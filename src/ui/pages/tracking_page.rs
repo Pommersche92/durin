@@ -17,6 +17,25 @@ use crate::app::DurinApp;
 /// deterministic labels equal to configured group names.
 pub fn render(app: &mut DurinApp, ui: &mut egui::Ui) {
     ui.heading(app.t("tracking.heading"));
+    ui.horizontal(|ui| {
+        let popout_label = if app.settings.chart_popout_enabled {
+            "Close pop-out"
+        } else {
+            "Open pop-out"
+        };
+
+        if ui.button(popout_label).clicked() {
+            app.toggle_chart_popout();
+        }
+
+        let mut opacity = app.settings.chart_popout_opacity;
+        if ui
+            .add(egui::Slider::new(&mut opacity, 0.0..=1.0).text("Pop-out opacity"))
+            .changed()
+        {
+            app.set_chart_popout_opacity(opacity);
+        }
+    });
     ui.separator();
 
     if let Some(profile) = app.active_profile() {

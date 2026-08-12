@@ -26,6 +26,9 @@ pub struct Settings {
     pub hotkey: String,
     pub ui_language: Option<String>,
     pub active_profile: Option<String>,
+    pub chart_popout_enabled: bool,
+    pub chart_popout_opacity: f32,
+    pub chart_popout_always_on_top: bool,
     pub profiles: Vec<Profile>,
 }
 
@@ -64,6 +67,9 @@ impl Default for Settings {
             hotkey: "Ctrl+Shift+R".to_string(),
             ui_language: None,
             active_profile: None,
+            chart_popout_enabled: false,
+            chart_popout_opacity: 0.8,
+            chart_popout_always_on_top: true,
             profiles: Vec::new(),
         }
     }
