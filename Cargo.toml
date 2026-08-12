@@ -1,11 +1,14 @@
 [package]
 name = "durin"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["Raimo Geisel"]
 description = "A live process heap inspector and RAM usage overlay for Windows and Linux."
 readme = "README.md"
 license = "GPL-3.0-only"
+repository = "https://github.com/Pommersche92/durin"
+homepage = "https://pommersche92.github.io/durin/"
+documentation = "https://docs.rs/durin"
 keywords = ["heap", "memory", "profiler", "overlay", "process"]
 categories = ["development-tools::profiling", "command-line-utilities"]
 

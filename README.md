@@ -374,9 +374,13 @@ Durin is being developed in layers from broad observability to deep memory diagn
 
 ## Changelog
 
-### v0.1.0 (crates.io only) - 2026-08-12
+### v0.1.1 (crates.io only) - 2026-08-12
 
-Recent improvements since the initial baseline.
+Added:
+
+- Added missing repository, website and documentation links to Cargo.toml
+
+### v0.1.0 (crates.io only) - 2026-08-12
 
 Changed:
 
