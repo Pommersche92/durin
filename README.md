@@ -374,6 +374,12 @@ Durin is being developed in layers from broad observability to deep memory diagn
 
 ## Changelog
 
+### [Unreleased] - 2026-08-12
+
+Added:
+
+- Added a dedicated Windows pop-out RAM diagram window with draggable, resizable, and pin/unpin behavior for the live chart.
+
 ### v0.1.1 (crates.io only) - 2026-08-12
 
 Added:
