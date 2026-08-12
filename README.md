@@ -374,7 +374,7 @@ Durin is being developed in layers from broad observability to deep memory diagn
 
 ## Changelog
 
-### [Unreleased] - 2026-08-11
+### v0.1.0 (crates.io only) - 2026-08-12
 
 Recent improvements since the initial baseline.
 
