@@ -1,5 +1,10 @@
 use eframe::egui;
 
+/// Platform-specific contract for managing the chart pop-out window.
+///
+/// The trait isolates native window operations behind a portable API so the
+/// Windows-first implementation can stay narrow while the Linux path is added
+/// behind the same interface.
 pub trait ChartPopoutController: Send + Sync {
     fn set_enabled(&mut self, enabled: bool);
     fn set_opacity(&mut self, opacity: f32);
@@ -17,6 +22,10 @@ pub trait ChartPopoutController: Send + Sync {
     );
 }
 
+/// Windows implementation of the chart pop-out controller.
+///
+/// The current behavior intentionally keeps the pop-out interactive and
+/// non-click-through so it behaves like a regular, draggable native window.
 #[cfg(windows)]
 #[derive(Debug, Clone)]
 pub struct WindowsChartPopoutController {
@@ -123,6 +132,10 @@ impl ChartPopoutController for WindowsChartPopoutController {
     }
 }
 
+/// Linux placeholder for the chart pop-out controller.
+///
+/// The implementation is intentionally minimal and kept as a contract hook for a
+/// future X11/Wayland-specific window manager integration.
 #[cfg(not(windows))]
 #[derive(Debug, Clone)]
 pub struct LinuxChartPopoutController {
@@ -204,7 +217,7 @@ impl ChartPopoutController for LinuxChartPopoutController {
     }
 }
 
-#[cfg(windows)]
+/// Creates the platform-specific chart pop-out controller for the current OS.
 pub fn create_chart_popout_controller() -> Box<dyn ChartPopoutController> {
     Box::new(WindowsChartPopoutController::new())
 }

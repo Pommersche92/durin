@@ -97,7 +97,7 @@ fn render_groups_editor(app: &mut DurinApp, ui: &mut egui::Ui) {
                     selected_group_idx = Some(g_idx);
                 }
 
-                if ui.small_button("x").clicked() {
+                if ui.small_button(&remove_label).clicked() {
                     remove_group_idx = Some(g_idx);
                 }
             });

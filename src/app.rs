@@ -253,6 +253,12 @@ impl DurinApp {
         let pinned = self.settings.chart_popout_pinned;
         let saved_position = self.settings.chart_popout_position.unwrap_or([120.0, 120.0]);
         let saved_size = self.settings.chart_popout_size.unwrap_or([760.0, 360.0]);
+        let popout_title = self.t("chart.popout_title").to_string();
+        let no_data_label = self.t("chart.no_data").to_string();
+        let pin_label = self.t("chart.pin").to_string();
+        let unpin_label = self.t("chart.unpin").to_string();
+        let time_label = self.t("chart.tooltip_time").to_string();
+        let ram_label = self.t("chart.tooltip_ram").to_string();
 
         self.chart_popout.apply_platform_state(ctx, viewport_id, false, false, 1.0);
         ctx.request_repaint_of(viewport_id);
@@ -303,7 +309,7 @@ impl DurinApp {
                 ui.painter().text(
                     label_rect.min,
                     egui::Align2::LEFT_TOP,
-                    "RAM Chart",
+                    &popout_title,
                     egui::FontId::proportional(16.0),
                     egui::Color32::WHITE,
                 );
@@ -312,8 +318,8 @@ impl DurinApp {
                     egui::pos2(title_rect.max.x - 72.0, title_rect.min.y + 5.0),
                     egui::vec2(60.0, 22.0),
                 );
-                let pin_label = if effective_pinned { "Unpin" } else { "Pin" };
-                let pin_button = ui.put(pin_button_rect, egui::Button::new(pin_label));
+                let pin_button_label = if effective_pinned { &unpin_label } else { &pin_label };
+                let pin_button = ui.put(pin_button_rect, egui::Button::new(pin_button_label));
                 if pin_button.clicked() {
                     let next = !effective_pinned;
                     pinned_state_for_closure.store(next, std::sync::atomic::Ordering::Relaxed);
@@ -360,7 +366,7 @@ impl DurinApp {
 
                 if let Ok(series) = snapshot.read() {
                     if series.is_empty() {
-                        chart_ui.label("No data yet");
+                        chart_ui.label(&no_data_label);
                     } else {
                         let plot = Plot::new("chart_popout_plot")
                             .legend(Legend::default())
@@ -373,13 +379,13 @@ impl DurinApp {
                             .label_formatter(|hover_pos: &HoverPosition<'_>| {
                                 Some(match hover_pos {
                                     HoverPosition::NearDataPoint { plot_name, position, index: _ } => format!(
-                                        "{}\nt = {}\nRAM = {}",
+                                        "{}\n{time_label} = {}\n{ram_label} = {}",
                                         plot_name,
                                         format_duration_compact(position.x),
                                         format_memory_value_adaptive(position.y)
                                     ),
                                     HoverPosition::Elsewhere { position } => format!(
-                                        "t = {}\nRAM = {}",
+                                        "{time_label} = {}\n{ram_label} = {}",
                                         format_duration_compact(position.x),
                                         format_memory_value_adaptive(position.y)
                                     ),
@@ -618,9 +624,9 @@ impl App for DurinApp {
             ui.separator();
 
             let popout_label = if self.settings.chart_popout_enabled {
-                "Close pop-out"
+                self.t("chart.popout_close").to_string()
             } else {
-                "Open pop-out"
+                self.t("chart.popout_open").to_string()
             };
 
             if ui.button(popout_label).clicked() {
