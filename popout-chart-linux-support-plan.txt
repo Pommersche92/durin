@@ -1,0 +1,118 @@
+# Pop-out chart Linux support plan
+
+## Goal
+Add a borderless, semi-transparent, always-on-top chart pop-out that is click-through by default, with an interaction mode activated by holding Ctrl. The implementation should be structured so the Windows path can be built first while the Linux path remains straightforward to add later.
+
+## Current project baseline
+- The app currently creates a single eframe viewport with transparent always-on-top behavior in `src/main.rs`.
+- Persisted settings are defined in `src/config.rs` and saved to `settings.toml`.
+- The chart is rendered in `src/ui/pages/tracking_page.rs`.
+- No dedicated "pop-out chart" window or opacity controls exist yet.
+
+## Design principles
+- Keep the windowing behavior behind a small abstraction so OS-specific code is isolated.
+- Default behavior should remain non-intrusive: semi-transparent, click-through, always-on-top.
+- Ctrl activates interactive mode: no click-through, manual move/resize, hover-driven opacity restoration.
+- Persist user-facing opacity and pop-out settings in the app settings file.
+
+## Proposed architecture
+### 1. Add a pop-out settings model
+Extend the persisted `Settings` structure with values such as:
+- `chart_popout_enabled: bool`
+- `chart_popout_opacity: f32` with default `0.8`
+- `chart_popout_always_on_top: bool`
+- optional future `chart_popout_mode` values if needed later
+
+This should be implemented in `src/config.rs` with default values and TOML serialization support. The app should save these values whenever the user changes them.
+
+### 2. Isolate window behavior behind a platform abstraction
+Create a dedicated platform/windowing module or trait, for example:
+- `src/windowing/mod.rs`
+- `src/windowing/platform.rs`
+- `src/windowing/windows.rs`
+- `src/windowing/linux.rs`
+
+The API should expose methods like:
+- `enable_popout_window()`
+- `disable_popout_window()`
+- `set_opacity(f32)`
+- `set_click_through(bool)`
+- `set_always_on_top(bool)`
+- `set_borderless(bool)`
+- `set_interactive_mode(bool)`
+- `begin_drag_resize_if_ctrl()`
+
+The Windows implementation will be the first one created. The Linux implementation can later conform to the same interface.
+
+### 3. Add a chart pop-out state object in the app
+Add state to `DurinApp` for:
+- whether the pop-out is open
+- whether it is in interactive mode
+- whether the mouse is hovering over the pop-out
+- current opacity
+- whether Ctrl is currently down
+- a tracked window handle for Windows or an OS abstraction for Linux
+
+This keeps the UI logic independent from the platform-specific window management.
+
+### 4. Add a user-triggered button in the chart UI
+Add a button in the tracking page that toggles the pop-out window mode. The button should be available from the chart area or toolbar.
+
+UI text can be something like:
+- "Pop out chart"
+- "Close pop-out"
+
+### 5. Implement Windows behavior
+For Windows, implement the feature using native Win32 APIs:
+- borderless window creation
+- layered window attributes for transparency
+- always-on-top flag
+- click-through while not in Ctrl interaction mode
+- move/resize while Ctrl is pressed
+- opacity based on current state and config
+
+The Windows-specific logic should live in `src/windowing/windows.rs` and be selected at compile time via cfg.
+
+### 6. Implement hover + Ctrl behavior
+When the pop-out is active:
+- default opacity should be `0.8`
+- if Ctrl is pressed and the mouse is hovering the pop-out, opacity should become `1.0`
+- if Ctrl is not pressed, the configured opacity should apply and the window should be click-through
+- if Ctrl is pressed and the pointer is not hovered, maintain an interactive/opaque state that still allows normal interaction
+
+This ruleset should be centralized so it is easy to reason about and test.
+
+### 7. Linux implementation plan
+The Linux implementation should be added later in a second pass:
+- prefer X11 support first, because it gives the best control for layered windows and click-through
+- treat Wayland as a degraded mode with warnings if the compositor does not support the feature
+- keep the same high-level API contracts so no UI changes are needed when Linux support is added
+
+Possible Linux strategy:
+- use X11 window attributes for input ignore / opacity on X11
+- detect Wayland and disable advanced features or fall back to a standard transparent window when compositor support exists
+- keep user-facing settings available even if the Linux implementation is limited
+
+### 8. Validation checklist
+Validate on Windows with:
+- default pop-out opens as transparent overlay
+- it remains always-on-top
+- click-through works by default
+- Ctrl + drag moves/resizes correctly
+- hover with Ctrl makes window opaque
+- settings persist across app restart
+- config file remains valid TOML
+
+## Implementation order
+1. Add settings fields and default config
+2. Add pop-out state to app runtime
+3. Add platform abstraction shell
+4. Implement Windows-specific pop-out window
+5. Add UI trigger button and settings wiring
+6. Validate and iterate
+7. Add Linux support behind the same abstraction
+
+## Notes
+- This should be implemented in a way that keeps Linux support easy to add without refactoring the UI or settings model.
+- A clean abstraction boundary across OS-specific window code will reduce future complexity.
+- The default opacity value should be `0.8`, with the value saved in the TOML file and applied on launch.
